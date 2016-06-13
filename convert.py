@@ -1,4 +1,11 @@
+import collections
 b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+def asciiToHex(ascStr):
+    ret = ""
+    for char in ascStr:
+        ret += hex(ord(char))[2:]
+    return ret
 
 # str -> [int]
 def hexStrToInt(hexString):
@@ -58,3 +65,25 @@ def hexStrToASCII(hexStr):
 	for num in paired:
 		ret += chr(num)
 	return ret
+
+# ASCII -> Bool
+def plausible(inStr, tolerance):
+	sanitize = inStr.lower().replace(" ","")
+	top = collections.Counter(sanitize).most_common(5)
+	score = 0
+	for entry in top:
+		if entry[0]=='r' or entry[0]=='e' or entry[0]=='t' or entry[0]=='a' or entry[0]=='o' or entry[0]=='i' or entry[0]=='n' or entry[0]=='s':
+			score += 1
+	return True if score>=tolerance else False
+
+# (ASCII String, ASCII String) -> hex String
+def repeatingKeyXOR(inStr, key):
+    i=0
+    ret = ""
+    while i<len(inStr):
+        app = hex(ord(inStr[i])^ord(key[i%len(key)]))
+        if int(app, 16)<int("10", 16):
+            ret += "0"
+        ret+=app[2:]
+        i += 1
+    return ret

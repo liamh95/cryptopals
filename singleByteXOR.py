@@ -1,7 +1,7 @@
 import convert, collections
 
 # ASCII -> Bool
-def plausible(inStr):
+def plausible(inStr, tolerance):
 	sanitize = inStr.lower().replace(" ", "")
 	frequencies = collections.Counter(inStr)
 	top = frequencies.most_common(5)
@@ -9,7 +9,7 @@ def plausible(inStr):
 	for entry in top:
 		if entry[0]=='e' or entry[0]=='t' or entry[0]=='a' or entry[0]=='o' or entry[0]=='i' or entry[0]=='n' or entry[0]=='s':
 			score += 1
-	return True if score>2 else False
+	return True if score>=tolerance else False
 
 ###########################################
 
