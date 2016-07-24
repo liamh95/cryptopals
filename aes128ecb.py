@@ -5,6 +5,15 @@ from __future__ import print_function
 #0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
 #0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07]
 
+# Number of columns (32-bit words) comprising the State.
+Nb = 4
+
+# Number of 32 bit words comprising the Cipher Key (4,6,8)
+Nk = 4
+
+# Number of rounds (10, 12, 14)
+Nr = 10
+
 
 def xtime(inByte):
     ret = inByte
@@ -125,11 +134,12 @@ def makeSBox():
         SBox.append(boxByte)
     return SBox
 
+SBox = makeSBox()
 # 5.1.1
 # SubBytes()
 def SubBytes(state):
     for i in range(0,len(state)):
-        state[i] = SubBytes[state[i]]
+        state[i] = SBox[state[i]]
 
 # 5.1.2
 # ShiftRows()
@@ -156,6 +166,97 @@ def AddRoundKey(state, schedBlock):
     for i in range(0,len(state)):
         state[i] ^= schedBlock[i]
 
+def xpow(exponent):
+    if exponent==0:
+        return 1
+    else:
+        temp = 1
+        for _ in range(0, exponent):
+            temp = xtime(temp)
+        return temp
+
+# word1 and word2 better be 4 bytes each
+def wordXOR(word1, word2):
+    if len(word1)!= 4 or len(word2)!= 4:
+        return [0,0,0,0]
+    else:
+         return [word1[i] ^ word2[i] for i in range(0,4)]
+
 ##################################################
 #              5.2  Key Expansion                #
 ##################################################
+
+Rcon = [[0,0,0,0]]
+temp = 1
+for i in range(1, Nb*(Nr+1)):
+    Rcon.append([xpow(i-1), 0, 0, 0])
+
+def SubWord(word):
+    if len(word) != 4:
+        return [-1, -1, -1, -1]
+    else:
+        ret = []
+        for byte in word:
+            ret.append(SBox[byte])
+        return ret
+
+def RotWord(word):
+    if len(word) != 4:
+        return [-1, -1, -1, -1]
+    else:
+        return [word[1], word[2], word[3], word[0]]
+
+
+# generates Nb(Nr+1) words
+# w becomes the key schedule!
+def KeyExpansion(key, w, Nk):
+    for i in range(0, Nk):
+        w[i] = [ key[4*i], key[4*i+1], key[4*i+2], key[4*i+3] ]
+    temp = [0,0,0,0]
+    for j in range(Nk, Nb*(Nr+1)):
+        temp = w[j-1]
+        if j%Nk == 0:
+            temp = wordXOR(SubWord(RotWord(temp)),Rcon[j/Nk])
+        elif Nk>6 and j%Nk == 4:
+            temp = SubWord(temp)
+        w[j] = wordXOR(w[j-Nk], temp)
+
+
+##################################################
+#              5.3  Inverse Cipher               #
+# w[] contains key schedule
+##################################################
+
+# 5.3.1 InvShiftRows()
+def InvShiftRows(state):
+    temp = 0
+    for row in range(1,4):
+        temp = state[4*row:4*(row+1)]
+        for col in range(0,4):
+            state[4*row+col] = temp[(col-row)%4]
+
+def makeInvSBox():
+    
+
+# 5.3.2 InvSubBytes()
+#def InvSubBytes:
+
+# in[4*Nb]
+# out[4*Nb]
+# w[Nb*(Nr+1)]
+def InvCipher(inMat, outMat, w):
+    # state is a 4xNb matrix
+    state = inMat
+    AddRoundKey(state, w[Nr*Nb:Nb*(Nr+1)])
+
+    for rnd in range(Nr-1, 0, -1):
+        InvShiftRows(state)
+        InvSubBytes(state)
+        AddRoundKey(state,w[rnd*Nb, (rnd+1)*Nb])
+        InvMixColumns(state)
+
+    InvShiftRows(state)
+    InvSubBytes(state)
+    AddRoundKey(state,w[0,Nb])
+
+    out = state
